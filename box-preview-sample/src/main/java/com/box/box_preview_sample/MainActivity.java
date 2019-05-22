@@ -3,6 +3,8 @@ package com.box.box_preview_sample;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.box.androidsdk.browse.activities.BoxBrowseFileActivity;
@@ -12,6 +14,9 @@ import com.box.androidsdk.content.models.BoxFile;
 import com.box.androidsdk.content.models.BoxFolder;
 import com.box.androidsdk.content.models.BoxSession;
 import com.box.androidsdk.preview.BoxPreviewActivity;
+import com.box.androidsdk.preview.BoxPreviewViewPager;
+import com.box.androidsdk.preview.ext.DefaultPreviewController;
+import com.box.androidsdk.preview.fragments.BoxPreviewFragment;
 
 import java.util.ArrayList;
 
@@ -20,9 +25,19 @@ import androidx.appcompat.app.AppCompatActivity;
 /**
  * Sample activity that demonstrates preview functionality for BoxFiles of an authenticated user
  */
-public class MainActivity extends AppCompatActivity implements BoxAuthentication.AuthListener {
+public class MainActivity extends AppCompatActivity implements BoxAuthentication.AuthListener, BoxPreviewViewPager.BoxPreviewExecutorProvider {
 
     BoxSession mSession = null;
+
+    private static BoxPreviewViewPager.BoxPreviewExecutor PREVIEW_EXECUTOR;
+
+    @Override
+    public BoxPreviewViewPager.BoxPreviewExecutor getPreviewExecutor() {
+        if (PREVIEW_EXECUTOR == null) {
+            PREVIEW_EXECUTOR = BoxPreviewViewPager.BoxPreviewExecutor.createInstance(getApplication());
+        }
+        return PREVIEW_EXECUTOR;
+    }
 
     private static final int BROWSE_FILE_REQUEST_CODE = 101;
     private static final int PREVIEW_FILE_REQUEST_CODE = 102;
@@ -41,11 +56,11 @@ public class MainActivity extends AppCompatActivity implements BoxAuthentication
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         BoxConfig.IS_LOG_ENABLED = true;
-        BoxConfig.CLIENT_ID = "<client_id>";
-        BoxConfig.CLIENT_SECRET = "<client_secret>";
+        BoxConfig.CLIENT_ID = "kjilhl3575vip5dfq0j6blljdb55ofb6";
+        BoxConfig.CLIENT_SECRET = "2O1lXEOB0B5OMCbWqLx1I2neS3r0vMtC";
 
         // needs to match redirect uri in developer settings if set.
-        BoxConfig.REDIRECT_URL = "<redirect_url>";
+        BoxConfig.REDIRECT_URL = "https://example.com/";
 
         if (savedInstanceState != null) {
             mPathToRoot = (ArrayList<BoxFolder>) savedInstanceState.getSerializable(PATH_TO_ROOT);
@@ -60,12 +75,54 @@ public class MainActivity extends AppCompatActivity implements BoxAuthentication
      * @param file BoxFile to launch preview for
      */
     private void launchPreview(BoxFile file) {
-        mPathToRoot = file.getPathCollection().getEntries();
-        BoxFolder parentFolder = file.getParent() == null ? BoxFolder.createFromId("0") : file.getParent();
-        BoxPreviewActivity.IntentBuilder builder = BoxPreviewActivity.createIntentBuilder(this, mSession, file)
-                .setBoxFolder(parentFolder);
-        //set the box folder, so the sdk can page through other files in the directory for images, audio or video
-        startActivityForResult(builder.createIntent(), PREVIEW_FILE_REQUEST_CODE);
+//        mPathToRoot = file.getPathCollection().getEntries();
+//        BoxFolder parentFolder = file.getParent() == null ? BoxFolder.createFromId("0") : file.getParent();
+//        BoxPreviewActivity.IntentBuilder builder = BoxPreviewActivity.createIntentBuilder(this, mSession, file)
+//                .setBoxFolder(parentFolder);
+//        //set the box folder, so the sdk can page through other files in the directory for images, audio or video
+//        startActivityForResult(builder.createIntent(), PREVIEW_FILE_REQUEST_CODE);
+
+
+        BoxPreviewViewPager pager = findViewById(R.id.main_pager);
+        DefaultPreviewController defaultPreviewController = new DefaultPreviewController(mSession);
+
+        pager.init();
+
+        pager.setFragmentListener(new BoxPreviewFragment.Listener() {
+            @Override
+            public void onFragmentVisible(BoxPreviewFragment boxPreviewFragment) {
+                Log.e("TAG", "onFragmentVisible: " + boxPreviewFragment.toString());
+            }
+
+            @Override
+            public void onFragmentLoaded(BoxPreviewFragment boxPreviewFragment) {
+                Log.e("TAG", "onFragmentLoaded: " + boxPreviewFragment.toString());
+            }
+
+            @Override
+            public void onFragmentUnloaded(BoxPreviewFragment boxPreviewFragment) {
+
+            }
+
+            @Override
+            public void onFragmentTapped() {
+
+            }
+
+            @Override
+            public void onFragmentScrolled() {
+
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e("TAG", "onError: ");
+                e.printStackTrace();
+            }
+        });
+
+        pager.loadItem(defaultPreviewController, file);
+
     }
 
     /**
@@ -138,7 +195,7 @@ public class MainActivity extends AppCompatActivity implements BoxAuthentication
     private void initialize(boolean showUserPicker) {
         mSession = showUserPicker ? new BoxSession(this, null) : new BoxSession(this);
         mSession.setSessionAuthListener(this);
-        mSession.authenticate();
+        mSession.authenticate(this);
     }
 
     @Override
